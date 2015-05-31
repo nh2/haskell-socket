@@ -36,7 +36,7 @@ foreign import ccall unsafe "sys/socket.h sendto"
   c_sendto  :: Fd -> Ptr a -> CSize -> MsgFlags -> Ptr b -> CInt -> IO CSSize
 
 foreign import ccall unsafe "sys/socket.h sendmsg"
-  c_sendmsg :: Fd -> Ptr (Msg a t p) -> MsgFlags -> IO CSSize
+  c_sendmsg :: Fd -> Ptr (Msg a c) -> MsgFlags -> IO CSSize
 
 foreign import ccall unsafe "sys/socket.h recv"
   c_recv    :: Fd -> Ptr a -> CSize -> MsgFlags -> IO CSSize
@@ -46,7 +46,7 @@ foreign import ccall unsafe "sys/socket.h recvfrom"
   c_recvfrom :: Fd -> Ptr a -> CSize -> MsgFlags -> Ptr b -> Ptr CInt -> IO CSSize
 
 foreign import ccall unsafe "sys/socket.hs recvmsg"
-  c_recvmsg  :: Fd -> Ptr (Msg a t p) -> MsgFlags -> IO CSSize
+  c_recvmsg  :: Fd -> Ptr (Msg a c) -> MsgFlags -> IO CSSize
 
 foreign import ccall unsafe "sys/socket.h getsockopt"
   c_getsockopt  :: Fd -> CInt -> CInt -> Ptr a -> Ptr CInt -> IO CInt

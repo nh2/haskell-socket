@@ -149,6 +149,14 @@ module System.Socket (
   , TCP
   -- *** SCTP
   , SCTP
+  -- **** sctpSend
+  , sctpSend
+  -- **** sctpSendMsg
+  , sctpSendMsg
+  -- **** sctpRecv
+  , sctpRecv
+  -- **** sctpRecvMsg
+  , sctpRecvMsg
   -- * Exceptions
   -- ** SocketException
   , SocketException (..)
@@ -501,7 +509,7 @@ send s bs flags = do
     unsafeSend s (castPtr bufPtr) (fromIntegral bufSize) flags
   return (fromIntegral bytesSent)
 
-sendMsg :: (Address a, Type t, Protocol p) => Socket a t p -> Msg a t p -> IO Int
+sendMsg :: (Address a) => Socket a t p -> Msg a c -> IO Int
 sendMsg s msg = do
   bytesSent <- unsafeUseAsMsgPtr msg $ \msgPtr-> do
     unsafeSendMsg s msgPtr (msgFlags msg)
@@ -612,12 +620,12 @@ recvFrom s bufSize flags =
             return (bs, addr)
         )
 
-recvMsg :: forall a t p. (Address a, Type t, Protocol p)
+recvMsg :: forall a t p c. (Address a, MsgControl c)
   => Socket a t p
   -> Int            -- ^ Buffer size in bytes (should be a power of 2, e.g. 4096)
   -> Bool           -- ^ Shall the peer address be returned?
   -> MsgFlags
-  -> IO (Msg a t p)
+  -> IO (Msg a c)
 recvMsg s bufSize reqAddr flags = do
   allocaBytes (#const sizeof(struct msghdr)) $ \msgPtr-> do
     allocaBytes (#const sizeof(struct iovec)) $ \iovPtr-> do
@@ -643,17 +651,17 @@ recvMsg s bufSize reqAddr flags = do
                           then peek addrPtr >>= return . Just
                           else return Nothing
                       )
-                  <*> ( return [] )
+                  <*> ( return undefined )
                   <*> ( MsgFlags <$> peek (msg_flags msgPtr) )
           )
   where
     iov_base       = (#ptr struct iovec, iov_base)    :: Ptr IoVec -> Ptr CString
     iov_len        = (#ptr struct iovec, iov_len)     :: Ptr IoVec -> Ptr CSize
-    msg_name       = (#ptr struct msghdr, msg_name)   :: Ptr (Msg a t p) -> Ptr (Ptr a)
-    msg_namelen    = (#ptr struct msghdr, msg_namelen):: Ptr (Msg a t p) -> Ptr CInt
-    msg_iov        = (#ptr struct msghdr, msg_iov)    :: Ptr (Msg a t p) -> Ptr (Ptr IoVec)
-    msg_iovlen     = (#ptr struct msghdr, msg_iovlen) :: Ptr (Msg a t p) -> Ptr CSize
-    msg_flags      = (#ptr struct msghdr, msg_flags)  :: Ptr (Msg a t p) -> Ptr CInt
+    msg_name       = (#ptr struct msghdr, msg_name)   :: Ptr (Msg a c) -> Ptr (Ptr a)
+    msg_namelen    = (#ptr struct msghdr, msg_namelen):: Ptr (Msg a c) -> Ptr CInt
+    msg_iov        = (#ptr struct msghdr, msg_iov)    :: Ptr (Msg a c) -> Ptr (Ptr IoVec)
+    msg_iovlen     = (#ptr struct msghdr, msg_iovlen) :: Ptr (Msg a c) -> Ptr CSize
+    msg_flags      = (#ptr struct msghdr, msg_flags)  :: Ptr (Msg a c) -> Ptr CInt
 
 -- | Closes a socket.
 --
@@ -673,7 +681,7 @@ recvMsg s bufSize reqAddr flags = do
 --   - The following `SocketException`s are theoretically possible, but should not occur if the library is correct:
 --
 --     [@EBADF@]         The file descriptor is invalid.
-close :: (Address a, Type t, Protocol  p) => Socket a t p -> IO ()
+close :: Socket a t p -> IO ()
 close (Socket mfd) = do
   modifyMVarMasked_ mfd $ \fd-> do
     if fd < 0 then do
@@ -729,7 +737,7 @@ sendAllTo s bs flags addr = do
 --   > sendAllMsg sock msg = do
 --   >   sent <- sendMsg sock msg
 --   >   when (sent < length (msgIov msg)) $ sendAllMsg sock (msg { msgIov = drop sent (msgIov msg)})
-sendAllMsg :: (Address a, Type t, Protocol p) => Socket a t p -> Msg a t p -> IO ()
+sendAllMsg :: (Address a) => Socket a t p -> Msg a c -> IO ()
 sendAllMsg s msg = do
   sent <- sendMsg s msg
   when (fromIntegral sent < LBS.length (msgIov msg)) $ do

@@ -87,7 +87,7 @@ unsafeSendTo (Socket mfd) bufPtr bufSize flags addrPtr addrSize = do
       Left  wait          -> wait >> again
       Right bytesSent     -> return (fromIntegral bytesSent)
 
-unsafeSendMsg :: Socket a t p -> Ptr (Msg a t p) -> MsgFlags -> IO CInt
+unsafeSendMsg :: Socket a t p -> Ptr (Msg a c) -> MsgFlags -> IO CInt
 unsafeSendMsg (Socket mfd) msghdrPtr flags = do
   fix $ \again-> do
     ewb <- withMVar mfd $ \fd-> do
@@ -128,7 +128,7 @@ unsafeRecv (Socket mfd) bufPtr bufSize flags =
       Left  wait          -> wait >> again
       Right bytesReceived -> return bytesReceived
 
-unsafeRecvMsg :: Socket a t p -> Ptr (Msg a t p) -> MsgFlags -> IO CInt
+unsafeRecvMsg :: Socket a t p -> Ptr (Msg a c) -> MsgFlags -> IO CInt
 unsafeRecvMsg (Socket mfd) msgPtr flags =
   fix $ \again-> do
     ewb <- withMVar mfd $ \fd-> do
@@ -178,7 +178,7 @@ unsafePokeByteStringToIoVec iovecPtr bs = do
     iov_base = (#ptr struct iovec, iov_base) :: Ptr IoVec -> Ptr CString
     iov_len  = (#ptr struct iovec, iov_len)  :: Ptr IoVec -> Ptr CSize
 
-unsafeUseAsMsgPtr :: Address a => Msg a t p -> (Ptr (Msg a t p) -> IO o) -> IO o
+unsafeUseAsMsgPtr :: Address a => Msg a c -> (Ptr (Msg a c) -> IO o) -> IO o
 unsafeUseAsMsgPtr msg f = do
   allocaBytes (#const sizeof(struct msghdr)) $ \msgHdrPtr-> do
     allocaBytes (chunkCount * (#const sizeof(struct iovec))) $ \iovArrPtr-> do
@@ -201,8 +201,8 @@ unsafeUseAsMsgPtr msg f = do
   where
     MsgFlags flags = msgFlags msg
     chunkCount     = length (LBS.toChunks (msgIov msg))
-    msg_name       = (#ptr struct msghdr, msg_name)   :: Ptr (Msg a t p) -> Ptr (Ptr a)
-    msg_namelen    = (#ptr struct msghdr, msg_namelen):: Ptr (Msg a t p) -> Ptr CInt
-    msg_iov        = (#ptr struct msghdr, msg_iov)    :: Ptr (Msg a t p) -> Ptr (Ptr IoVec)
-    msg_iovlen     = (#ptr struct msghdr, msg_iovlen) :: Ptr (Msg a t p) -> Ptr CSize
-    msg_flags      = (#ptr struct msghdr, msg_flags)  :: Ptr (Msg a t p) -> Ptr CInt
+    msg_name       = (#ptr struct msghdr, msg_name)   :: Ptr (Msg a c) -> Ptr (Ptr a)
+    msg_namelen    = (#ptr struct msghdr, msg_namelen):: Ptr (Msg a c) -> Ptr CInt
+    msg_iov        = (#ptr struct msghdr, msg_iov)    :: Ptr (Msg a c) -> Ptr (Ptr IoVec)
+    msg_iovlen     = (#ptr struct msghdr, msg_iovlen) :: Ptr (Msg a c) -> Ptr CSize
+    msg_flags      = (#ptr struct msghdr, msg_flags)  :: Ptr (Msg a c) -> Ptr CInt
